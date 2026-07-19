@@ -40,6 +40,11 @@ Based on the notebook's imports, the following are required:
 - `numpy`
 - `scikit-learn` >= 1.0.1 (notebook asserts this via `packaging.version`)
 - `tensorflow` (provides `tensorflow.keras`)
+- `tensorboard` -- not imported directly, but required at runtime by
+  `tf.keras.callbacks.TensorBoard`/`tf.summary.scalar` (used in the
+  baseline-model and tuning `model.fit()` calls) and by the
+  `%load_ext tensorboard`/`%tensorboard` magics; omitting it raises
+  `TBNotInstalledError` from inside `model.fit()` -- see Known Issues
 - `keras-tuner`
 - `matplotlib`
 - `seaborn`
@@ -93,6 +98,25 @@ In the "Fine Tuning" section, `predicted_classes = (predictions > 0.5).astype(in
 The repository includes a committed, pre-trained model file, `models/best_german_credit_model.h5`, produced by `best_model.save('../models/best_german_credit_model.h5')`. Keras itself flags this as a legacy format at save time (`WARNING:absl: ... This file format is considered legacy ...`). More importantly from a security standpoint: loading a Keras/H5 model with `tf.keras.models.load_model()` can execute arbitrary Python code if the file contains a `Lambda` layer or other layer with a serialized Python callable, because Keras deserializes those via `pickle`/`marshal`-style mechanisms. This is a well-known class of risk for shared/untrusted `.h5` (and legacy `.pkl`) model files — a malicious `.h5` can achieve code execution simply by being loaded, not just by being "run." In this repository the file is self-produced by the project's own notebook and is presumed trustworthy for that reason alone, but this trust cannot be assumed for any `.h5` file obtained from an external or unverified source.
 
 **Fix-it plan:** For any future work that loads model files from outside this repository (or accepts them from users), do not call `load_model()` directly on untrusted input. Prefer the newer Keras native `.keras` format, load with `safe_mode=True` where supported, inspect the model architecture (e.g., check for `Lambda` layers) before loading, or load model weights only into a known-safe architecture definition instead of deserializing the full model graph. Treat any `.h5`/`.keras`/`.pkl` file from an untrusted source the same as untrusted executable code.
+
+### CI Failure: Missing `tensorboard` Dependency -- Fixed
+
+**Status: resolved.** CI failed with `Process completed with exit code 1`,
+raised from inside `model.fit()`. Reproduced locally: the actual error is
+`tensorflow.python.summary.tb_summary.TBNotInstalledError: TensorBoard is
+not installed, missing implementation for tf.summary.scalar`.
+`tf.keras.callbacks.TensorBoard` (used in the baseline-model `model.fit()`
+call) calls `tf.summary.scalar` internally, which requires the standalone
+`tensorboard` PyPI package -- a separate install from `tensorflow` itself,
+and one this repository's `requirements.txt` never listed. Confirmed
+locally with `tensorboard` installed that the exact same `model.fit()`
+call (with a `TensorBoard` callback) then completes successfully, so this
+was not a CI timeout (`timeout-minutes: 30`, per the runtime note above)
+as it might first appear from the generic exit-code-1 message -- it's a
+missing dependency, reproducible on the very first `model.fit()` call
+that uses the callback, well within the timeout.
+
+**Fix applied:** added `tensorboard` to `requirements.txt`.
 
 ## Status
 
