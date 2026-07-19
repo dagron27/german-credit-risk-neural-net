@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn>=1.0.1
+tensorflow
+keras-tuner
+matplotlib
+seaborn
+packaging
+jupyter

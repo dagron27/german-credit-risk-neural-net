@@ -1,0 +1,53 @@
+my_dir/
+logs/
+keras_tuner/
+credit_tuning/
+
+# CI notebook execution output (jupyter nbconvert --execute in ci.yml
+# writes here, never --inplace, so this never touches the committed
+# proj3.ipynb)
+ci-output/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment directory
+venv/
+env/
+ENV/
+.venv/
+*.env
+
+# VSCode settings (optional, if using VSCode)
+.vscode/
+
+# JetBrains IDE settings
+.idea/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook hidden files
+*.nbstripout
+*.nbsignatures
+
+# IPython and Jupyter logs
+ipython_log.py
+ipython_console.py
+
+# Temporary and lock files
+*.bak
+*.swp
+*.swo
+*.tmp
+
+# Environment variable files (often containing sensitive info)
+.env
+.env.*

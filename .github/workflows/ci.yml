@@ -1,0 +1,117 @@
+name: CI
+
+# Trigger on every push, to any branch (no branch filter), plus manual runs
+# from the Actions tab (workflow_dispatch). There is no pull_request trigger
+# because this repository does not currently use PR-based workflows.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  execute-notebook:
+    runs-on: ubuntu-latest
+
+    # ---------------------------------------------------------------------
+    # RUNTIME NOTE - read before changing the timeout or execution step:
+    #
+    # notebooks/proj3.ipynb is significantly heavier than a "quick sanity check"
+    # notebook job:
+    #   - It trains a Keras MLP baseline for 30 epochs, then retrains the
+    #     same model a second time (also 30 epochs) purely to capture
+    #     TensorBoard logs.
+    #   - It runs a Keras Tuner BayesianOptimization search with
+    #     max_trials=30 (up to 30 epochs per trial, with EarlyStopping
+    #     patience=5), and then retrains the best configuration found for
+    #     another 20 epochs.
+    #
+    # We checked whether the trial count or epoch counts were exposed as
+    # easily overridable variables (e.g. an env-var-driven "fast mode")
+    # near the top of the notebook so CI could run a cheap reduced pass
+    # instead. They are not: `max_trials=30` and every `epochs=` value are
+    # hardcoded inline at each call site (tuner construction, tuner.search,
+    # and the various model.fit calls), so there is no lightweight way to
+    # shrink this run without editing notebook cells -- which is out of
+    # scope here.
+    #
+    # This job therefore executes the notebook exactly as authored (full
+    # baseline training, full TensorBoard retrain, and the full 30-trial
+    # tuner search) rather than faking a partial run. Because that is
+    # inherently slow and CPU-bound on a shared GitHub Actions runner, and
+    # because keras-tuner's BayesianOptimization can in rare cases stall
+    # on a pathological trial, timeout-minutes below is a safety net that
+    # kills a stuck run rather than letting it consume Actions minutes
+    # indefinitely. It is a hang guard, not a promise that every run
+    # finishes well inside it -- if this job starts timing out routinely,
+    # raise the value rather than assuming something is broken.
+    #
+    # Expect this job to take noticeably longer than CI for the other
+    # notebook repos in this course, both because tensorflow/keras-tuner
+    # are much larger installs than a typical scikit-learn-only notebook,
+    # and because of the tuner search itself. See the "Continuous
+    # Integration" section of README.md for more detail.
+    # ---------------------------------------------------------------------
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Pin to the Python minor version referenced by the notebook's
+      # kernel metadata (3.10). pip caching is enabled so repeat runs
+      # don't re-download tensorflow's large wheel from scratch every time.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      # requirements.txt already includes tensorflow, keras-tuner, and
+      # jupyter (needed for the notebook's %load_ext/%tensorboard magics).
+      # nbconvert is a transitive dependency of jupyter, but it is
+      # installed explicitly here so `jupyter nbconvert` is guaranteed to
+      # be available even if that transitive dependency ever changes
+      # upstream.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install nbconvert
+
+      # Execute the full notebook end to end, exactly as authored (no
+      # trial-count or epoch overrides -- see the runtime note above).
+      # The dataset CSV is already committed under data/, so this does
+      # not require outbound network access to fetch training data.
+      #
+      # Output is written to a fresh, git-ignored "ci-output" directory
+      # rather than --inplace, so this step can never modify or overwrite
+      # the committed notebooks/proj3.ipynb (and it never touches
+      # models/best_german_credit_model.h5 at all -- the notebook only
+      # writes that file if a cell explicitly calls best_model.save(...),
+      # and the runner's working copy is discarded when the job ends
+      # regardless).
+      #
+      # --ExecutePreprocessor.timeout=-1 disables nbconvert's own per-cell
+      # timeout so a single long tuner trial isn't killed mid-cell; the
+      # job-level timeout-minutes above is the real safety net for the run
+      # as a whole.
+      - name: Execute notebook (full retraining + Keras Tuner search)
+        run: |
+          mkdir -p ci-output
+          jupyter nbconvert --to notebook --execute notebooks/proj3.ipynb \
+            --output-dir=ci-output \
+            --output=proj3_executed.ipynb \
+            --ExecutePreprocessor.timeout=-1 \
+            --ExecutePreprocessor.kernel_name=python3
+
+      # Keep the executed notebook around as a downloadable build artifact
+      # (for debugging a failed/slow run) without ever committing it back
+      # to the repository. Runs even if the execute step above failed or
+      # timed out, so partial output is still inspectable.
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: executed-notebook
+          path: ci-output/proj3_executed.ipynb
+          retention-days: 7
+          if-no-files-found: ignore
