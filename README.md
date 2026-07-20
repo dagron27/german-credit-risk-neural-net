@@ -30,6 +30,17 @@ The notebook `notebooks/proj3.ipynb` (107 cells) walks through:
 6. **Hyperparameter tuning** — Keras Tuner `BayesianOptimization` (30 trials) searching input/hidden layer widths, dropout rates, and learning rate, with `EarlyStopping` and TensorBoard logging (trial artifacts written under `credit_tuning/`, also git-ignored).
 7. **Final model** — the best hyperparameter configuration (192 input units, 0.30 input dropout, 16 hidden units, 0.50 hidden dropout, learning rate ≈ 7.36e-4) is retrained and re-evaluated, achieving a best validation accuracy of **0.8226**, test-set precision **0.7830**, recall **0.8762**, F1 **0.8270**, ROC-AUC **0.7295**. The final model is saved as `models/best_german_credit_model.h5` (the committed file in this repo).
 
+## Repository Organization
+
+The original submission had the notebook, dataset CSV, and trained
+model together at the repository root. They have been separated into
+`notebooks/`, `data/`, and `models/` for portfolio-wide consistency
+with sibling repositories, with `docs/Report.pdf` grouped into `docs/`.
+This required updating the notebook's own relative path references
+(`nbconvert` executes with the notebook's own directory as the working
+directory), not just moving files, alongside `.github/workflows/ci.yml`
+and this README.
+
 ## Dependencies
 
 A `requirements.txt` is now included (`pip install -r requirements.txt`).
@@ -80,6 +91,31 @@ As a result, this CI job takes noticeably longer than a typical notebook CI job 
 GitHub Actions runners are ephemeral and execution output is written to a non-committed path (not `--inplace`), so a CI run never overwrites the committed `notebooks/proj3.ipynb` or the committed `models/best_german_credit_model.h5`. Similarly, any TensorBoard log files (`logs/`) written while the notebook executes in CI exist only for the lifetime of that runner and do not persist anywhere past the job.
 
 ## Known Issues
+
+### PII Exposure -- Fixed, History Squashed
+
+Two separate leaks were found and fixed during a portfolio-wide PII
+sweep, prior to this repository's first push to this personal GitHub
+account:
+
+- **Unredacted student ID in `docs/Report.pdf`.** An earlier version of
+  the report PDF carried the same StarID pattern found and redacted
+  elsewhere in this portfolio. True-redacted via PyMuPDF (search +
+  black-fill annotation + apply-redactions), verified via re-extracted
+  text showing zero remaining hits and an intact page count.
+- **Local username/machine name quoted in this README's own prior
+  description of an already-fixed notebook-output leak.** An earlier
+  documentation pass, while describing a fix to a leaked local file
+  path in the notebook's cached cell output, quoted the actual local
+  username/machine name as part of that description -- meaning the
+  README meant to document a fix ended up re-introducing a smaller
+  version of the same class of exposure.
+
+Because both had already been committed, this repository's git history
+was squashed to a single commit before the first push to this personal
+GitHub account specifically to remove both exposures from history, not
+just the current working tree -- the old commits containing them were
+never pushed anywhere public.
 
 ### Dead Code: Discarded Feature-Engineering Block
 
