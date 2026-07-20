@@ -94,22 +94,9 @@ GitHub Actions runners are ephemeral and execution output is written to a non-co
 
 ### PII Exposure -- Fixed, History Squashed
 
-Two separate leaks were found and fixed during a portfolio-wide PII
-sweep, prior to this repository's first push to this personal GitHub
-account:
-
-- **Unredacted student ID in `docs/Report.pdf`.** An earlier version of
-  the report PDF carried the same StarID pattern found and redacted
-  elsewhere in this portfolio. True-redacted via PyMuPDF (search +
-  black-fill annotation + apply-redactions), verified via re-extracted
-  text showing zero remaining hits and an intact page count.
-- **Local username/machine name quoted in this README's own prior
-  description of an already-fixed notebook-output leak.** An earlier
-  documentation pass, while describing a fix to a leaked local file
-  path in the notebook's cached cell output, quoted the actual local
-  username/machine name as part of that description -- meaning the
-  README meant to document a fix ended up re-introducing a smaller
-  version of the same class of exposure.
+Two separate PII exposures were found and fixed during a portfolio-wide
+PII sweep, prior to this repository's first push to this personal
+GitHub account.
 
 Because both had already been committed, this repository's git history
 was squashed to a single commit before the first push to this personal
